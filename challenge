@@ -1,0 +1,66 @@
+Reddit software engineering Backend challenge
+http://www.reddit.com/r/blog/comments/fjgit
+
+------
+
+Like all websites, reddit keeps logs of every hit. We roll them every
+morning at around 7am and keep the last five days uncompressed. Each
+of those files is about 70-72 GB. Here's a sample line; IPs have been
+changed for privacy reasons and linebreaks have been added for legibility:
+
+Feb 10 10:59:49 web03 haproxy[1631]: 10.350.42.161:58625
+[10/Feb/2011:10:59:49.089] frontend pool3/srv28-5020 0/138/0/19/160
+200 488 - - ---- 332/332/13/0/0 0/15 {Mozilla/5.0 (Windows; U; Windows
+NT 6.1; en-US; rv:1.9.2.7) Gecko/20100713 Firefox/3.6.7|www.reddit.com|
+http://www.reddit.com/r/pics/?count=75&after=t3_fiic6|201.8.487.192|17.86.820.117|}
+"POST /api/vote HTTP/1.1"
+
+We often have to find the log line corresponding to an event -- a "you
+broke reddit" or a weird thing someone saw or to investigate cheating. We
+used to do it like this:
+
+$ grep '^Feb 10 10:13' haproxy.log > /tmp/extraction.txt
+
+But as traffic grew, it started taking longer and longer. First it was
+"run the command, get a cup of coffee, check the results." Then it was,
+"run the command, read all today's rage comics, check the results." When
+it got longer than that, we realized we needed to do something.
+
+So we wrote a tool called tgrep and it works like this:
+
+$ tgrep 8:42:04 [log lines with that precise timestamp] $ tgrep 10:01 [log
+lines with timestamps between 10:01:00 and 10:01:59] $ tgrep 23:59-0:03
+[log lines between 23:59:00 and 0:03:59]
+
+By default it uses /logs/haproxy.log as the input file, but you can
+specify an alternate filename by appending it to the command line. It
+also works if you prepend it, because who has time to remember the order
+of arguments for every little dumb script?
+
+Most importantly, tgrep is fast, because it doesn't look at every line in
+the file. It jumps around, checking timestamps and doing an interpolative
+search until it finds the range you're looking for.
+
+For this challenge, reimplement tgrep. You can assume that each line
+starts with a datetime, e.g., Feb 10 10:52:39 and also that each log
+contains a single 24-hour period, plus or minus a few minutes. In
+other words, there will probably be one midnight crossing in the log,
+but never more than one. The timestamps are always increasing -- we
+never accidentally put "Feb 1 6:42:17" after "Feb 1 6:42:18". And our
+servers don't honor daylight saving time, so you can ignore that whole
+can of worms. [Edit: you asked for a script to generate a sample log,
+so we wrote one.]
+
+You can use whatever programming language you want. (If you choose
+Postscript, you're fired.) The three judging criteria, in order of
+importance:
+
+   1. It has to give the right answer, even in all the special cases. (For
+   extra credit, list all the special cases you can think of in your
+   README) 
+   2. It has to be fast. During testing, keep count of how
+   many times you call lseek() or read(), and then make those numbers
+   smaller. (For extra credit, give us the big-O analysis of the typical
+   case and the worst case) 
+   3. Elegant code is better than spaghetti
+
